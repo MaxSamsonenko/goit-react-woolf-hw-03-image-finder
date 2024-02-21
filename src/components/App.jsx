@@ -9,6 +9,8 @@ import { Modal } from './Modal/Modal';
 import { Loader } from './Loader/Loader';
 import { fetchImages } from './api';
 
+import { MainWrapper, Container, LoaderWrap } from './App.styled';
+
 export class App extends Component {
   state = {
     pictures: [],
@@ -18,7 +20,7 @@ export class App extends Component {
     isLoading: false,
     isModalVisible: false,
     modalImage: { url: '', alt: '' },
-    totalHits: 0,
+    hasMorePages: false,
   };
 
   shouldForwardProp(propName, target) {
@@ -31,50 +33,49 @@ export class App extends Component {
   async componentDidUpdate(prevProps, prevState) {
     const { page, query } = this.state;
 
-    if (this.state.query !== prevState.query) {
-      this.setState({ pictures: [], page: 1, status: 'pending', totalHits: 0 });
+    if (
+      this.state.page !== prevState.page ||
+      this.state.query !== prevState.query
+    ) {
       try {
         let result = await fetchImages(query, page);
-        console.log(result.hits);
         if (result.hits.length === 0) {
-          this.setState({ status: 'rejected' });
+          this.setState({ status: 'rejected', isLoading: false });
           throw new Error('something went wrong');
         }
-        this.setState({
-          pictures: [...result.hits],
-          status: 'resolved',
-          totalHits: result.totalHits,
+        this.setState(prevState => {
+          return {
+            pictures: [...prevState.pictures, ...result.hits],
+            status: 'resolved',
+            hasMorePages: page < Math.ceil(result.totalHits / 12),
+            isLoading: false,
+          };
         });
+        console.log(this.state.pictures);
       } catch (error) {
         console.log(error);
-        this.setState({ status: 'rejected' });
+        this.setState({ status: 'rejected', isLoading: false });
       }
     }
   }
 
   onBtnClick = async () => {
-    const { page, query } = this.state;
-    this.setState({ isLoading: true });
-
-    try {
-      let result = await fetchImages(query, page + 1);
-      console.log(result.hits);
-      this.setState(prevState => {
-        return {
-          pictures: [...prevState.pictures, ...result.hits],
-          page: prevState.page + 1,
-
-          isLoading: false,
-        };
-      });
-    } catch (error) {
-      console.log(error);
-      this.setState({ status: 'rejected', isLoading: false });
-    }
+    this.setState(prevState => {
+      return {
+        page: prevState.page + 1,
+        isLoading: true,
+      };
+    });
   };
 
   addPictures = ({ query }) => {
-    this.setState({ query: query });
+    this.setState({
+      query: query,
+      pictures: [],
+      page: 1,
+      status: 'pending',
+      hasMorePages: false,
+    });
   };
   onImageClick = (imageUrl, imageAlt) => {
     this.setState({
@@ -86,59 +87,32 @@ export class App extends Component {
     this.setState({ isModalVisible: false });
   };
   render() {
-    const { pictures, status, isLoading, totalHits, page } = this.state;
-    const loadMore = page < Math.ceil(totalHits / 12);
+    const { pictures, status, isLoading, hasMorePages, isModalVisible } =
+      this.state;
     return (
       <StyleSheetManager shouldForwardProp={this.shouldForwardProp}>
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            height: ' 100vh',
-            marginBottom: '80px',
-            paddingTop: '50px',
-          }}
-        >
+        <MainWrapper>
           <Modal
-            isVisible={this.state.isModalVisible}
+            isVisible={isModalVisible}
             imageUrl={this.state.modalImage.url}
             alt={this.state.modalImage.alt}
             onClose={this.closeModal}
           />
           <Searchbar onSubmit={this.addPictures} />
           {status === 'rejected' && <div>Something went wrong</div>}
-          {status === 'pending' && (
-            <div
-              style={{
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              <Loader />
-            </div>
-          )}
+          {status === 'pending' && <Loader />}
           {status === 'resolved' && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                flexDirection: 'column',
-                marginBottom: '20px',
-              }}
-            >
+            <Container>
               <ImageGallery items={pictures} onClick={this.onImageClick} />
               {isLoading && (
-                <div style={{ marginBottom: '20px' }}>
+                <LoaderWrap>
                   <Loader />
-                </div>
+                </LoaderWrap>
               )}
-              {loadMore && <Button onLoadMoreBtnClick={this.onBtnClick} />}
-            </div>
+              {hasMorePages && <Button onLoadMoreBtnClick={this.onBtnClick} />}
+            </Container>
           )}
-        </div>
+        </MainWrapper>
       </StyleSheetManager>
     );
   }

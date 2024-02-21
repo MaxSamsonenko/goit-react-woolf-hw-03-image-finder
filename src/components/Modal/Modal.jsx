@@ -11,6 +11,12 @@ export class Modal extends Component {
     document.removeEventListener('keydown', this.handleKeyDown);
   }
 
+  handleOverlayClick = e => {
+    if (e.target === e.currentTarget) {
+      this.props.onClose();
+    }
+  };
+
   handleKeyDown = e => {
     if (e.key === 'Escape') {
       this.props.onClose();
@@ -18,10 +24,10 @@ export class Modal extends Component {
   };
 
   render() {
-    const { isVisible, imageUrl, alt, onClose } = this.props;
+    const { isVisible, imageUrl, alt } = this.props;
     return (
-      <Overlay isVisible={isVisible} onClick={onClose}>
-        <ModalWin onClick={e => e.stopPropagation()}>
+      <Overlay isVisible={isVisible} onClick={this.handleOverlayClick}>
+        <ModalWin>
           <img src={imageUrl} alt={alt} />
         </ModalWin>
       </Overlay>
